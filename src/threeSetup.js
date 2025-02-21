@@ -3,6 +3,8 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GUI } from "dat.gui";
 
+console.log("init js loaded");
+
 function setupGUI(camera, uniforms) {
   const guiControls = {
     cameraX: camera.position.x,
