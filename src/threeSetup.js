@@ -185,7 +185,7 @@ function initThreeSetup() {
     specularUpper: { value: 0.48 },
     overlayOpacity: { value: 0.12 },
     overlayScale: { value: 0.002 },
-    overlayTimeScale: { value: 0.726 },
+    overlayTimeScale: { value: 0.724 },
     color1: { value: new THREE.Color(0xff0000) },
     color2: { value: new THREE.Color(0x00ff00) },
     color3: { value: new THREE.Color(0x0000ff) },
