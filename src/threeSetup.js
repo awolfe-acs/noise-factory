@@ -3,8 +3,6 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GUI } from "dat.gui";
 
-console.log("threeSetup.js loaded");
-
 function setupGUI(camera, uniforms) {
   const guiControls = {
     cameraX: camera.position.x,
@@ -25,6 +23,9 @@ function setupGUI(camera, uniforms) {
     overlayOpacity: uniforms.overlayOpacity.value,
     overlayScale: uniforms.overlayScale.value,
     overlayTimeScale: uniforms.overlayTimeScale.value,
+    // For debugging: we can view uvScale as well if desired.
+    // uvScaleX: uniforms.uvScale.value.x,
+    // uvScaleY: uniforms.uvScale.value.y,
     color1: "#" + uniforms.color1.value.getHexString(),
     color2: "#" + uniforms.color2.value.getHexString(),
     color3: "#" + uniforms.color3.value.getHexString(),
@@ -73,7 +74,7 @@ function setupGUI(camera, uniforms) {
       uniforms.exposureCeiling.value = val;
     });
   gui
-    .add(guiControls, "animFrequency", 0.001, 2)
+    .add(guiControls, "animFrequency", 0.1, 2)
     .name("Anim Frequency")
     .step(0.001)
     .onChange((val) => {
@@ -119,7 +120,7 @@ function setupGUI(camera, uniforms) {
   gui
     .add(guiControls, "overlayScale", 0.0001, 5)
     .name("Overlay Scale")
-    .step("0.0001")
+    .step(0.0001)
     .onChange((val) => {
       uniforms.overlayScale.value = val;
     });
@@ -130,7 +131,6 @@ function setupGUI(camera, uniforms) {
     .onChange((val) => {
       uniforms.overlayTimeScale.value = val;
     });
-
   gui
     .addColor(guiControls, "color1")
     .name("Color 1")
@@ -154,16 +154,9 @@ function setupGUI(camera, uniforms) {
 }
 
 function initThreeSetup() {
-  console.log("initThreeSetup ran.");
-
   // init camera
-  const camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-  );
-  camera.position.z = 1.5;
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+  camera.position.z = 1;
   const scene = new THREE.Scene();
 
   ////////////////////////////////////////
@@ -176,26 +169,28 @@ function initThreeSetup() {
     },
     iTime: { value: 0 },
     mixFactor: { value: 1.0 },
-    noiseDensity: { value: 5.0 },
+    noiseDensity: { value: 2.88 },
     heightIntensity: { value: 5.5 },
     sharpness: { value: 5.0 },
     brightness: { value: 1.2 },
-    exposureCeiling: { value: 0.442 },
-    animationMix: { value: 0.1 },
-    animFrequency: { value: 0.308 },
+    exposureCeiling: { value: 1.5 },
+    animationMix: { value: 0.0 },
+    animFrequency: { value: 0.25 },
     metallic: { value: 0.0 },
-    specularExponent: { value: 15.0 },
-    specularLower: { value: 0.15 },
-    specularUpper: { value: 0.48 },
-    overlayOpacity: { value: 0.12 },
-    overlayScale: { value: 0.002 },
-    overlayTimeScale: { value: 0.724 },
+    specularExponent: { value: 16.0 },
+    specularLower: { value: 0.2 },
+    specularUpper: { value: 0.8 },
+    overlayOpacity: { value: 0.22 },
+    overlayScale: { value: 0.0088 },
+    overlayTimeScale: { value: 0.2 },
+    uvScale: { value: new THREE.Vector2(1.0, 1.0) },
+    targetAspect: { value: 21 / 9 },
     color1: { value: new THREE.Color(0xff0000) },
     color2: { value: new THREE.Color(0x00ff00) },
     color3: { value: new THREE.Color(0x0000ff) },
   };
 
-  // A simple vertex shader that outputs a fullscreen quad.
+  // Vertex shader: pass along UVs.
   const vertexShader = `
     varying vec2 vUv;
     void main() {
@@ -204,7 +199,7 @@ function initThreeSetup() {
     }
   `;
 
-  // Fragment shader updated to add a film-grain style overlay.
+  // Fragment shader: use our locked aspect ratio.
   const fragmentShader = `
     #ifdef GL_ES
     precision mediump float;
@@ -227,12 +222,16 @@ function initThreeSetup() {
     uniform float overlayOpacity;
     uniform float overlayScale;
     uniform float overlayTimeScale;
+    uniform float targetAspect;
+    uniform vec2 uvScale;
     uniform vec3 color1;
     uniform vec3 color2;
     uniform vec3 color3;
+    varying vec2 vUv;
 
+    // Reusable random function.
     float rand(vec2 n) { 
-      return fract(sin(dot(n, vec2(12.9898, 78.233))) * 43758.5453);
+      return fract(sin(dot(n, vec2(12.9898,78.233))) * 43758.5453);
     }
 
     float worley(vec2 uv) {
@@ -273,8 +272,27 @@ function initThreeSetup() {
       return mix(p, s, animationMix);
     }
 
+    // Compute a UV coordinate that always spans a fixed target aspect ratio.
+    vec2 getFixedUV() {
+      float screenAspect = iResolution.x / iResolution.y;
+      vec2 uv;
+      if (screenAspect > targetAspect) {
+        // Screen is wider than target: fill width, crop top/bottom.
+        float newHeight = iResolution.x / targetAspect;
+        uv = vec2(gl_FragCoord.x / iResolution.x, (gl_FragCoord.y - (iResolution.y - newHeight)*0.5) / newHeight);
+      } else {
+        // Screen is taller than target: fill height, crop sides.
+        float newWidth = iResolution.y * targetAspect;
+        uv = vec2((gl_FragCoord.x - (iResolution.x - newWidth)*0.5) / newWidth, gl_FragCoord.y / iResolution.y);
+      }
+      return uv;
+    }
+
     void mainImage(out vec4 fragColor, in vec2 fragCoord) {
-      vec2 uv = fragCoord / iResolution.xy;
+      // Get our fixed UV coordinates.
+      vec2 uv = getFixedUV();
+      
+      // Apply our warping.
       vec2 warpedUV = warpUV(uv);
       
       float hWorley = worley(warpedUV * noiseDensity);
@@ -316,10 +334,8 @@ function initThreeSetup() {
       
       vec3 col = diffuse + specular;
       
-      // Film grain overlay: use a classic film grain formula from gl_FragCoord.
-      // Multiply gl_FragCoord.xy by overlayScale to control the frequency.
+      // Film grain overlay.
       float filmGrain = fract(sin(dot(gl_FragCoord.xy * overlayScale, vec2(12.9898, 78.233)) + iTime * overlayTimeScale) * 43758.5453);
-      // Blend the film grain into the final color; (filmGrain - 0.5) centers it around zero.
       vec3 finalColor = mix(col, col + (filmGrain - 0.5), overlayOpacity);
       
       fragColor = vec4(finalColor, 1.0);
@@ -349,6 +365,23 @@ function initThreeSetup() {
   const controls = new OrbitControls(camera, renderer.domElement);
   const guiControls = setupGUI(camera, uniforms);
 
+  // Update targetAspect and uvScale based on window dimensions.
+  function updateAspectLock() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const actualAspect = width / height;
+    if (width >= height) {
+      // Desktop: lock to 21:9
+      uniforms.targetAspect.value = 21 / 9;
+    } else {
+      // Mobile: lock to 9:21
+      uniforms.targetAspect.value = 9 / 21;
+    }
+    // uvScale is not used directly since we compute UVs in shader via getFixedUV().
+  }
+
+  updateAspectLock();
+
   function animation() {
     uniforms.iTime.value = performance.now() / 1000;
     renderer.render(scene, camera);
@@ -357,15 +390,9 @@ function initThreeSetup() {
   renderer.setAnimationLoop(animation);
 
   function onWindowResize() {
-    const aspectRatio = window.innerWidth / window.innerHeight;
-    camera.left = -aspectRatio;
-    camera.right = aspectRatio;
-    camera.top = 1;
-    camera.bottom = -1;
-    camera.updateProjectionMatrix();
-
     renderer.setSize(window.innerWidth, window.innerHeight);
     uniforms.iResolution.value.set(window.innerWidth, window.innerHeight, 1);
+    updateAspectLock();
   }
 
   window.addEventListener("resize", onWindowResize, false);
