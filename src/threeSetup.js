@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GUI } from "dat.gui";
 
-console.log("init js loaded");
+console.log("threeSetup.js loaded");
 
 function setupGUI(camera, uniforms) {
   const guiControls = {
@@ -154,6 +154,8 @@ function setupGUI(camera, uniforms) {
 }
 
 function initThreeSetup() {
+  console.log("initThreeSetup ran.");
+
   // init camera
   const camera = new THREE.PerspectiveCamera(
     75,
@@ -335,7 +337,7 @@ function initThreeSetup() {
   });
 
   // Create a full-screen quad.
-  const geometry = new THREE.PlaneBufferGeometry(2, 2);
+  const geometry = new THREE.PlaneGeometry(2, 2);
   const mesh = new THREE.Mesh(geometry, material);
   scene.add(mesh);
 

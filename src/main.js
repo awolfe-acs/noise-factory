@@ -4,4 +4,6 @@ import "./scss/main.scss";
 
 console.log("main.js loaded");
 
-initThreeSetup();
+document.addEventListener("DOMContentLoaded", () => {
+  initThreeSetup();
+});
