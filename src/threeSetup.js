@@ -60,9 +60,9 @@ function setupGUI(camera, uniforms) {
       uniforms.sharpness.value = val;
     });
   gui
-    .add(guiControls, "brightness", 0.01, 10)
+    .add(guiControls, "brightness", 0.001, 5)
     .name("Brightness")
-    .step(0.01)
+    .step(0.001)
     .onChange((val) => {
       uniforms.brightness.value = val;
     });
@@ -88,7 +88,7 @@ function setupGUI(camera, uniforms) {
       uniforms.animationMix.value = val;
     });
   gui
-    .add(guiControls, "metallic", 0, 10)
+    .add(guiControls, "metallic", 0, 20)
     .name("Metallic")
     .onChange((val) => {
       uniforms.metallic.value = val;
@@ -118,7 +118,7 @@ function setupGUI(camera, uniforms) {
       uniforms.overlayOpacity.value = val;
     });
   gui
-    .add(guiControls, "overlayScale", 0.0001, 5)
+    .add(guiControls, "overlayScale", 0.0001, 1)
     .name("Overlay Scale")
     .step(0.0001)
     .onChange((val) => {
@@ -127,7 +127,7 @@ function setupGUI(camera, uniforms) {
   gui
     .add(guiControls, "overlayTimeScale", 0.0, 1)
     .name("Overlay Time Scale")
-    .step(0.001)
+    .step(0.0001)
     .onChange((val) => {
       uniforms.overlayTimeScale.value = val;
     });
@@ -180,9 +180,9 @@ function initThreeSetup() {
     specularExponent: { value: 16.0 },
     specularLower: { value: 0.2 },
     specularUpper: { value: 0.8 },
-    overlayOpacity: { value: 0.22 },
+    overlayOpacity: { value: 0.12 },
     overlayScale: { value: 0.0088 },
-    overlayTimeScale: { value: 0.2 },
+    overlayTimeScale: { value: 0.0018 },
     uvScale: { value: new THREE.Vector2(1.0, 1.0) },
     targetAspect: { value: 21 / 9 },
     color1: { value: new THREE.Color(0xff0000) },
