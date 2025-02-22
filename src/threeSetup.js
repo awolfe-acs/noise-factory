@@ -94,7 +94,7 @@ function setupGUI(camera, uniforms) {
       uniforms.metallic.value = val;
     });
   gui
-    .add(guiControls, "specularExponent", 1, 64)
+    .add(guiControls, "specularExponent", 1, 256)
     .name("Specular Exponent")
     .onChange((val) => {
       uniforms.specularExponent.value = val;
@@ -114,6 +114,7 @@ function setupGUI(camera, uniforms) {
   gui
     .add(guiControls, "overlayOpacity", 0, 1)
     .name("Overlay Opacity")
+    .step(0.0001)
     .onChange((val) => {
       uniforms.overlayOpacity.value = val;
     });

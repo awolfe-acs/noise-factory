@@ -72,4 +72,27 @@ main {
   z-index: 2;
   left: 24px;
   top: 24px;
+  background: rgba(2, 2, 2, 0.8);
+  backdrop-filter: blur(8px);
+  border-radius: 4px;
+
+  li {
+    background: none;
+  }
+
+  .cr.number {
+    div.slider {
+      height: 18px;
+    }
+
+    input {
+      height: 18px;
+    }
+  }
+
+  .cr.color {
+    input {
+      height: 20px;
+    }
+  }
 }
