@@ -10,12 +10,17 @@ function setupGUI(camera, uniforms) {
     cameraZ: camera.position.z,
     mixFactor: uniforms.mixFactor.value,
     noiseDensity: uniforms.noiseDensity.value,
-    heightIntensity: uniforms.heightIntensity.value,
+    heightMax: uniforms.heightMax.value, // renamed
+    floorMax: uniforms.floorMax.value, // new
     sharpness: uniforms.sharpness.value,
     brightness: uniforms.brightness.value,
     exposureCeiling: uniforms.exposureCeiling.value,
-    animationMix: uniforms.animationMix.value,
+    secondWarpMix: uniforms.secondWarpMix.value,
     animFrequency: uniforms.animFrequency.value,
+    primaryWarpAmplitude: uniforms.primaryWarpAmplitude.value,
+    primaryWarpFrequency: uniforms.primaryWarpFrequency.value,
+    primaryWarpPhase: uniforms.primaryWarpPhase.value,
+    primaryWarpBlend: uniforms.primaryWarpBlend.value,
     metallic: uniforms.metallic.value,
     specularExponent: uniforms.specularExponent.value,
     specularLower: uniforms.specularLower.value,
@@ -23,9 +28,6 @@ function setupGUI(camera, uniforms) {
     overlayOpacity: uniforms.overlayOpacity.value,
     overlayScale: uniforms.overlayScale.value,
     overlayTimeScale: uniforms.overlayTimeScale.value,
-    // For debugging: we can view uvScale as well if desired.
-    // uvScaleX: uniforms.uvScale.value.x,
-    // uvScaleY: uniforms.uvScale.value.y,
     color1: "#" + uniforms.color1.value.getHexString(),
     color2: "#" + uniforms.color2.value.getHexString(),
     color3: "#" + uniforms.color3.value.getHexString(),
@@ -48,10 +50,17 @@ function setupGUI(camera, uniforms) {
       uniforms.noiseDensity.value = val;
     });
   gui
-    .add(guiControls, "heightIntensity", 0.1, 25)
-    .name("Height Intensity")
+    .add(guiControls, "heightMax", 0.1, 25)
+    .name("Height Max")
     .onChange((val) => {
-      uniforms.heightIntensity.value = val;
+      uniforms.heightMax.value = val;
+    });
+  gui
+    .add(guiControls, "floorMax", 0.0, 1)
+    .name("Floor Max")
+    .step(0.001)
+    .onChange((val) => {
+      uniforms.floorMax.value = val;
     });
   gui
     .add(guiControls, "sharpness", 0.1, 25)
@@ -80,12 +89,41 @@ function setupGUI(camera, uniforms) {
     .onChange((val) => {
       uniforms.animFrequency.value = val;
     });
+  // New primaryWarp controls:
   gui
-    .add(guiControls, "animationMix", 0, 1)
-    .name("Animation Mix")
+    .add(guiControls, "primaryWarpBlend", 0, 1)
+    .name("PrimaryWarpBlend")
     .step(0.001)
     .onChange((val) => {
-      uniforms.animationMix.value = val;
+      uniforms.primaryWarpBlend.value = val;
+    });
+  gui
+    .add(guiControls, "primaryWarpAmplitude", 0, 1)
+    .name("PrimaryWarpAmplitude")
+    .step(0.001)
+    .onChange((val) => {
+      uniforms.primaryWarpAmplitude.value = val;
+    });
+  gui
+    .add(guiControls, "primaryWarpFrequency", 0.001, 2)
+    .name("PrimaryWarpFrequency")
+    .step(0.001)
+    .onChange((val) => {
+      uniforms.primaryWarpFrequency.value = val;
+    });
+  gui
+    .add(guiControls, "primaryWarpPhase", 0, 5)
+    .name("PrimaryWarpPhase")
+    .step(0.001)
+    .onChange((val) => {
+      uniforms.primaryWarpPhase.value = val;
+    });
+  gui
+    .add(guiControls, "secondWarpMix", 0, 1)
+    .name("secondWarp Mix")
+    .step(0.001)
+    .onChange((val) => {
+      uniforms.secondWarpMix.value = val;
     });
   gui
     .add(guiControls, "metallic", 0, 20)
@@ -155,13 +193,9 @@ function setupGUI(camera, uniforms) {
 }
 
 function initThreeSetup() {
-  // init camera
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
   camera.position.z = 1;
   const scene = new THREE.Scene();
-
-  ////////////////////////////////////////
-  // Shader Code Here
 
   // Define our uniforms.
   const uniforms = {
@@ -170,13 +204,18 @@ function initThreeSetup() {
     },
     iTime: { value: 0 },
     mixFactor: { value: 1.0 },
-    noiseDensity: { value: 2.88 },
-    heightIntensity: { value: 5.5 },
+    noiseDensity: { value: 4.5 },
+    heightMax: { value: 5.5 }, // renamed from heightIntensity
+    floorMax: { value: 0.0 }, // new uniform controlling the dark floor level
     sharpness: { value: 5.0 },
     brightness: { value: 1.2 },
     exposureCeiling: { value: 1.5 },
-    animationMix: { value: 0.0 },
+    secondWarpMix: { value: 0.0 },
     animFrequency: { value: 0.25 },
+    primaryWarpBlend: { value: 0.5 },
+    primaryWarpAmplitude: { value: 0.1 },
+    primaryWarpFrequency: { value: 1.0 },
+    primaryWarpPhase: { value: 0.0 },
     metallic: { value: 0.0 },
     specularExponent: { value: 16.0 },
     specularLower: { value: 0.2 },
@@ -191,7 +230,6 @@ function initThreeSetup() {
     color3: { value: new THREE.Color(0x0000ff) },
   };
 
-  // Vertex shader: pass along UVs.
   const vertexShader = `
     varying vec2 vUv;
     void main() {
@@ -200,7 +238,6 @@ function initThreeSetup() {
     }
   `;
 
-  // Fragment shader: use our locked aspect ratio.
   const fragmentShader = `
     #ifdef GL_ES
     precision mediump float;
@@ -210,12 +247,17 @@ function initThreeSetup() {
     uniform float iTime;
     uniform float mixFactor;
     uniform float noiseDensity;
-    uniform float heightIntensity;
+    uniform float heightMax;
+    uniform float floorMax;
     uniform float sharpness;
     uniform float brightness;
     uniform float exposureCeiling;
-    uniform float animationMix;
+    uniform float secondWarpMix;
     uniform float animFrequency;
+    uniform float primaryWarpBlend;
+    uniform float primaryWarpAmplitude;
+    uniform float primaryWarpFrequency;
+    uniform float primaryWarpPhase;
     uniform float metallic;
     uniform float specularExponent;
     uniform float specularLower;
@@ -230,7 +272,6 @@ function initThreeSetup() {
     uniform vec3 color3;
     varying vec2 vUv;
 
-    // Reusable random function.
     float rand(vec2 n) { 
       return fract(sin(dot(n, vec2(12.9898,78.233))) * 43758.5453);
     }
@@ -260,40 +301,51 @@ function initThreeSetup() {
     }
 
     vec2 primaryWarp(vec2 uv) {
-      return uv + 0.1 * vec2(sin(iTime * animFrequency + uv.y * 10.0), cos(iTime * animFrequency + uv.x * 10.0));
+      // Sine-based warp:
+      vec2 sineWarp = uv + primaryWarpAmplitude * vec2(
+          sin(iTime * animFrequency + uv.y * 10.0 + primaryWarpPhase),
+          cos(iTime * animFrequency + uv.x * 10.0 + primaryWarpPhase)
+      );
+      // Noise-based warp:
+      vec2 noiseWarp = uv + primaryWarpAmplitude * 0.5 * vec2(
+          noise(uv * primaryWarpFrequency + iTime * animFrequency),
+          noise(uv * primaryWarpFrequency + 10.0 + iTime * animFrequency)
+      );
+      // Blend between the two based on primaryWarpBlend.
+      return mix(sineWarp, noiseWarp, primaryWarpBlend);
     }
 
     vec2 secondaryWarp(vec2 uv) {
-      return uv + 0.05 * vec2(sin(iTime * animFrequency * 1.5 + uv.y * 20.0), cos(iTime * animFrequency * 1.5 + uv.x * 20.0));
+      return uv + 0.05 * vec2(
+          sin(iTime * animFrequency * 1.5 + uv.y * 20.0),
+          cos(iTime * animFrequency * 1.5 + uv.x * 20.0)
+      );
     }
 
     vec2 warpUV(vec2 uv) {
       vec2 p = primaryWarp(uv);
       vec2 s = secondaryWarp(uv);
-      return mix(p, s, animationMix);
+      return mix(p, s, secondWarpMix);
     }
 
-    // Compute a UV coordinate that always spans a fixed target aspect ratio.
+    // Compute fixed UV coordinates to lock our effect's aspect ratio.
     vec2 getFixedUV() {
       float screenAspect = iResolution.x / iResolution.y;
       vec2 uv;
       if (screenAspect > targetAspect) {
-        // Screen is wider than target: fill width, crop top/bottom.
         float newHeight = iResolution.x / targetAspect;
-        uv = vec2(gl_FragCoord.x / iResolution.x, (gl_FragCoord.y - (iResolution.y - newHeight)*0.5) / newHeight);
+        uv = vec2(gl_FragCoord.x / iResolution.x,
+                  (gl_FragCoord.y - (iResolution.y - newHeight) * 0.5) / newHeight);
       } else {
-        // Screen is taller than target: fill height, crop sides.
         float newWidth = iResolution.y * targetAspect;
-        uv = vec2((gl_FragCoord.x - (iResolution.x - newWidth)*0.5) / newWidth, gl_FragCoord.y / iResolution.y);
+        uv = vec2((gl_FragCoord.x - (iResolution.x - newWidth) * 0.5) / newWidth,
+                  gl_FragCoord.y / iResolution.y);
       }
       return uv;
     }
 
     void mainImage(out vec4 fragColor, in vec2 fragCoord) {
-      // Get our fixed UV coordinates.
       vec2 uv = getFixedUV();
-      
-      // Apply our warping.
       vec2 warpedUV = warpUV(uv);
       
       float hWorley = worley(warpedUV * noiseDensity);
@@ -312,7 +364,7 @@ function initThreeSetup() {
         mixFactor
       );
       
-      vec3 normal = normalize(vec3((h - h_dx) * heightIntensity, (h - h_dy) * heightIntensity, 1.0));
+      vec3 normal = normalize(vec3((h - h_dx) * heightMax, (h - h_dy) * heightMax, 1.0));
       vec3 lightDir = normalize(vec3(0.5, 0.5, 2.0));
       float diff = clamp(dot(normal, lightDir), 0.0, 1.0);
       
@@ -322,7 +374,8 @@ function initThreeSetup() {
       baseColor = mix(baseColor, color3, s);
       
       float ramped = pow(h, sharpness);
-      float comp = ramped * heightIntensity;
+      float comp = ramped * heightMax + floorMax;
+      comp = clamp(comp, 0.0, 1.0);
       comp = comp / (1.0 + comp / exposureCeiling);
       
       vec3 diffuse = baseColor * comp * diff * brightness;
@@ -353,7 +406,6 @@ function initThreeSetup() {
     fragmentShader: fragmentShader,
   });
 
-  // Create a full-screen quad.
   const geometry = new THREE.PlaneGeometry(2, 2);
   const mesh = new THREE.Mesh(geometry, material);
   scene.add(mesh);
@@ -366,19 +418,14 @@ function initThreeSetup() {
   const controls = new OrbitControls(camera, renderer.domElement);
   const guiControls = setupGUI(camera, uniforms);
 
-  // Update targetAspect and uvScale based on window dimensions.
   function updateAspectLock() {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    const actualAspect = width / height;
     if (width >= height) {
-      // Desktop: lock to 21:9
       uniforms.targetAspect.value = 21 / 9;
     } else {
-      // Mobile: lock to 9:21
       uniforms.targetAspect.value = 9 / 21;
     }
-    // uvScale is not used directly since we compute UVs in shader via getFixedUV().
   }
 
   updateAspectLock();
